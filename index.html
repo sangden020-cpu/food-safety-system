@@ -1,0 +1,1912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>스마트 식중독 예측 & YOLOv8 과일 부패도 AI 관리 시스템</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --primary-light: #e0f2fe;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+
+      /* 위험도 단계 색상 */
+      --color-safe: #10b981;
+      --color-safe-bg: #ecfdf5;
+      --color-safe-border: #a7f3d0;
+
+      --color-caution: #eab308;
+      --color-caution-bg: #fefce8;
+      --color-caution-border: #fef08a;
+
+      --color-warning: #f97316;
+      --color-warning-bg: #fff7ed;
+      --color-warning-border: #fed7aa;
+
+      --color-danger: #ef4444;
+      --color-danger-bg: #fef2f2;
+      --color-danger-border: #fecaca;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #f0f9ff 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 60px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* 상단 헤더 */
+    .header {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 22px 24px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .badge-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background-color: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background-color: #f5f3ff;
+      color: #7c3aed;
+      border: 1px solid #ddd6fe;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: #10b981;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    .source-tag {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .header h1 {
+      font-size: 1.48rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* 상단 네비게이션 탭 */
+    .nav-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 16px;
+      gap: 4px;
+    }
+
+    .nav-tab-btn {
+      border: none;
+      background: transparent;
+      padding: 12px 10px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .nav-tab-btn.active {
+      background: #ffffff;
+      color: #0284c7;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .imminent-count-badge {
+      background: #ef4444;
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      display: none;
+    }
+
+    /* 탭 콘텐츠 영역 */
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    /* 공통 카드 */
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+      position: relative;
+    }
+
+    /* =======================================
+       1. 식중독 예측 탭 스타일
+       ======================================= */
+    .location-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f0f9ff;
+      border: 1.5px solid #bae6fd;
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .location-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #0369a1;
+    }
+
+    .location-subtext {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #64748b;
+      margin-left: 2px;
+    }
+
+    .location-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .select-region {
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid #7dd3fc;
+      background: #ffffff;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #0369a1;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .select-region:focus {
+      border-color: var(--primary);
+    }
+
+    .btn-relocate {
+      background: #ffffff;
+      border: 1px solid #7dd3fc;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #0284c7;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-relocate:hover {
+      background: #e0f2fe;
+    }
+
+    .result-card {
+      border-radius: 20px;
+      padding: 26px 24px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+      border: 2px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .theme-safe { background: linear-gradient(145deg, #ffffff 0%, var(--color-safe-bg) 100%); border-color: var(--color-safe-border); }
+    .theme-caution { background: linear-gradient(145deg, #ffffff 0%, var(--color-caution-bg) 100%); border-color: var(--color-caution-border); }
+    .theme-warning { background: linear-gradient(145deg, #ffffff 0%, var(--color-warning-bg) 100%); border-color: var(--color-warning-border); }
+    .theme-danger { background: linear-gradient(145deg, #ffffff 0%, var(--color-danger-bg) 100%); border-color: var(--color-danger-border); }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .region-title {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .level-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+
+    .badge-safe { background: #d1fae5; color: #047857; }
+    .badge-caution { background: #fef08a; color: #854d0e; }
+    .badge-warning { background: #ffedd5; color: #c2410c; }
+    .badge-danger { background: #fee2e2; color: #b91c1c; }
+
+    .metric-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .big-score {
+      font-size: 3.4rem;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .score-safe { color: var(--color-safe); }
+    .score-caution { color: var(--color-caution); }
+    .score-warning { color: var(--color-warning); }
+    .score-danger { color: var(--color-danger); }
+
+    .score-unit { font-size: 1.5rem; font-weight: 700; color: #64748b; }
+    .score-desc { font-size: 0.95rem; font-weight: 600; color: #334155; margin-left: 8px; }
+
+    .progress-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.4s;
+    }
+
+    .forecast-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .forecast-card {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .forecast-day { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }
+    .forecast-score { font-size: 1.2rem; font-weight: 800; }
+    .forecast-pill { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; align-self: center; }
+
+    .guide-box {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .guide-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .guide-text { font-size: 0.88rem; line-height: 1.55; color: #334155; }
+
+    /* =======================================
+       2. 유통기한 관리 탭 스타일
+       ======================================= */
+    .imminent-alert-banner {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #991b1b;
+      font-weight: 600;
+      font-size: 0.92rem;
+      display: none;
+    }
+
+    .imminent-alert-banner.show {
+      display: flex;
+    }
+
+    .register-form-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr auto;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    @media (max-width: 580px) {
+      .register-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: #f8fafc;
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--primary);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 11px 20px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .section-title-wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      margin-top: 10px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-count {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .inventory-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .inventory-item {
+      background: #f8fafc;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.15s;
+    }
+
+    .inventory-item.is-imminent {
+      background: #fff7ed;
+      border-color: #fdba74;
+      box-shadow: 0 2px 8px rgba(249, 115, 22, 0.1);
+    }
+
+    .inventory-item.is-expired {
+      background: #fef2f2;
+      border-color: #fca5a5;
+    }
+
+    .item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .item-name-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .item-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .dday-badge {
+      font-size: 0.78rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .dday-safe { background: #e0f2fe; color: #0369a1; }
+    .dday-imminent { background: #ffedd5; color: #c2410c; animation: pulse 1.5s infinite; }
+    .dday-expired { background: #fee2e2; color: #b91c1c; }
+
+    .item-dates {
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+
+    .item-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-delete {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-delete:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #ef4444;
+    }
+
+    .empty-placeholder {
+      text-align: center;
+      padding: 24px;
+      color: #94a3b8;
+      font-size: 0.88rem;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 14px;
+    }
+
+    /* =======================================
+       3. 과일 부패도(%) AI 측정 탭 스타일 (YOLOv8)
+       ======================================= */
+    .upload-zone {
+      border: 2.5px dashed #93c5fd;
+      background: #f8fafc;
+      border-radius: 18px;
+      padding: 34px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      background: #f0f9ff;
+      border-color: #0284c7;
+      transform: translateY(-1px);
+    }
+
+    .upload-icon {
+      width: 52px;
+      height: 52px;
+      color: #0284c7;
+      margin-bottom: 10px;
+    }
+
+    .upload-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .upload-subtitle {
+      font-size: 0.84rem;
+      color: #64748b;
+    }
+
+    .preview-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    /* AI 이미지 뷰어 (원본 vs 분석 결과) */
+    .ai-view-switcher {
+      display: flex;
+      background: #e2e8f0;
+      padding: 3px;
+      border-radius: 10px;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .view-switch-btn {
+      border: none;
+      background: transparent;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #64748b;
+      transition: all 0.15s;
+    }
+
+    .view-switch-btn.active {
+      background: #ffffff;
+      color: #0284c7;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .image-canvas-wrapper {
+      position: relative;
+      max-width: 100%;
+      max-height: 400px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1.5px solid var(--border);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .preview-img {
+      max-width: 100%;
+      max-height: 400px;
+      display: block;
+      object-fit: contain;
+    }
+
+    .spoilage-result-box {
+      display: none;
+      background: #ffffff;
+      border-radius: 18px;
+      border: 1.5px solid var(--border);
+      padding: 22px;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 4px 15px -2px rgba(0,0,0,0.04);
+    }
+
+    .spoilage-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .spoilage-fruit-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ai-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      background: #f8fafc;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .ai-stat-item {
+      font-size: 0.84rem;
+      color: #475569;
+    }
+
+    .ai-stat-item strong {
+      color: #0f172a;
+    }
+
+    .spoilage-metric-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .spoilage-big-score {
+      font-size: 3.2rem;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    /* 로딩 오버레이 */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(3px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      border-radius: 20px;
+      gap: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      display: none;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e2e8f0;
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* 푸터 */
+    .footer {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-top: 10px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <!-- 상단 공통 헤더 -->
+  <header class="header">
+    <div class="header-top">
+      <div>
+        <div class="badge-wrapper">
+          <span class="live-badge"><span class="live-dot"></span>실시간 식약처 연동</span>
+          <span class="ai-badge">🤖 YOLOv8-Seg AI 탑재</span>
+          <span class="source-tag" id="update-date-text">데이터 준비 중...</span>
+        </div>
+        <h1>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: #0284c7;">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+          식품 위생 & 식중독 예측 관리 시스템
+        </h1>
+        <p>실시간 GPS 식중독 지수 · 스마트 유통기한 알림 · YOLOv8 과일 부패도(%) AI 측정</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 3단 탭 네비게이션 -->
+  <nav class="nav-tabs">
+    <button class="nav-tab-btn active" data-tab="tab-location">
+      📍 실시간 식중독
+    </button>
+    <button class="nav-tab-btn" data-tab="tab-inventory">
+      📋 유통기한 관리
+      <span class="imminent-count-badge" id="imminent-nav-badge">0</span>
+    </button>
+    <button class="nav-tab-btn" data-tab="tab-spoilage">
+      🍎 과일 부패도 AI
+    </button>
+  </nav>
+
+  <!-- =========================================================
+       [탭 1] 실시간 내 위치 식중독 지수
+       ========================================================= -->
+  <section class="tab-content active" id="tab-location">
+    <!-- 현재 위치 뱃지 바 -->
+    <div class="location-banner">
+      <div class="location-info">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <span id="loc-display-text">위치 확인 중...</span>
+        <span class="location-subtext" id="loc-dist-text"></span>
+      </div>
+      <div class="location-controls">
+        <select class="select-region" id="select-manual-region" title="지역 직접 선택">
+          <option value="auto">📍 GPS 자동 감지</option>
+          <option value="all">🇰🇷 전국 종합 지표</option>
+          <option value="서울특별시">서울특별시</option>
+          <option value="경기도">경기도</option>
+          <option value="인천광역시">인천광역시</option>
+          <option value="부산광역시">부산광역시</option>
+          <option value="대구광역시">대구광역시</option>
+          <option value="광주광역시">광주광역시</option>
+          <option value="대전광역시">대전광역시</option>
+          <option value="울산광역시">울산광역시</option>
+          <option value="세종특별자치시">세종특별자치시</option>
+          <option value="강원특별자치도">강원특별자치도</option>
+          <option value="충청북도">충청북도</option>
+          <option value="충청남도">충청남도</option>
+          <option value="전북특별자치도">전북특별자치도</option>
+          <option value="전라남도">전라남도</option>
+          <option value="경상북도">경상북도</option>
+          <option value="경상남도">경상남도</option>
+          <option value="제주특별자치도">제주특별자치도</option>
+        </select>
+        <button class="btn-relocate" id="btn-relocate" title="최신 데이터 새로고침">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          새로고침
+        </button>
+      </div>
+    </div>
+
+    <!-- 식중독 결과 카드 -->
+    <div class="result-card theme-warning" id="result-card">
+      <div class="loading-overlay" id="loading-overlay-poison">
+        <div class="spinner"></div>
+        <div>실시간 식중독 지수 분석 중...</div>
+      </div>
+
+      <div class="result-header">
+        <h2 class="region-title" id="display-region">전국 평균</h2>
+        <span class="level-badge badge-warning" id="display-badge">경고 단계</span>
+      </div>
+
+      <div class="metric-row">
+        <div class="big-score score-warning" id="display-score">--.-</div>
+        <div class="score-unit">%</div>
+        <div class="score-desc" id="display-stage-desc">식중독 발생 가능성이 높습니다</div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width: 0%; background-color: var(--color-warning);"></div>
+      </div>
+
+      <!-- 3일간 예보 -->
+      <div class="forecast-grid">
+        <div class="forecast-card">
+          <span class="forecast-day">오늘</span>
+          <span class="forecast-score" id="fc-today-score">--.-%</span>
+          <span class="forecast-pill" id="fc-today-badge">--</span>
+        </div>
+        <div class="forecast-card">
+          <span class="forecast-day">내일</span>
+          <span class="forecast-score" id="fc-tomorrow-score">--.-%</span>
+          <span class="forecast-pill" id="fc-tomorrow-badge">--</span>
+        </div>
+        <div class="forecast-card">
+          <span class="forecast-day">모레</span>
+          <span class="forecast-score" id="fc-after-score">--.-%</span>
+          <span class="forecast-pill" id="fc-after-badge">--</span>
+        </div>
+      </div>
+
+      <!-- 행동 가이드 -->
+      <div class="guide-box">
+        <div class="guide-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          오늘의 권장 식중독 예방 수칙
+        </div>
+        <p class="guide-text" id="display-guide-text">
+          데이터를 불러오는 중입니다...
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       [탭 2] 유통기한 기록 & 임박 알림 (파일 저장 방식)
+       ========================================================= -->
+  <section class="tab-content" id="tab-inventory">
+    <!-- 임박 식품 상단 알림 배너 -->
+    <div class="imminent-alert-banner" id="imminent-alert-banner">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <div>
+        <span id="imminent-alert-text">유통기한 임박 식품이 0건 있습니다! 빠른 섭취가 필요합니다.</span>
+      </div>
+    </div>
+
+    <!-- 식품 등록 카드 -->
+    <div class="card">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:#0284c7;">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+          신규 식품 유통기한 등록
+        </h2>
+      </div>
+
+      <form id="form-register-food" class="register-form-grid">
+        <div class="form-group">
+          <label for="input-food-name">식품명</label>
+          <input type="text" id="input-food-name" class="form-input" placeholder="예: 생우유, 두부, 사과" required>
+        </div>
+        <div class="form-group">
+          <label for="input-food-expiry">유통기한 (소비기한)</label>
+          <input type="date" id="input-food-expiry" class="form-input" required>
+        </div>
+        <button type="submit" class="btn-primary">
+          등록 ➕
+        </button>
+      </form>
+    </div>
+
+    <!-- 1. 보관 중인 식품 목록 (잔여일 적게 남은 순 정렬) -->
+    <div class="card">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          📦 보관 중인 식품 목록
+        </h2>
+        <span class="section-count" id="active-count-text">0개 보관 중 (유통기한 적게 남은 순 정렬)</span>
+      </div>
+
+      <div class="inventory-list" id="active-inventory-list">
+        <!-- JS 동적 생성 -->
+      </div>
+    </div>
+
+    <!-- 2. 유통기한 지난 식품 목록 (만료 보관함) -->
+    <div class="card">
+      <div class="section-title-wrap">
+        <h2 class="section-title" style="color: #991b1b;">
+          🗑️ 유통기한 만료 보관함 (폐기 대상)
+        </h2>
+        <span class="section-count" id="expired-count-text">0개 만료됨</span>
+      </div>
+
+      <div class="inventory-list" id="expired-inventory-list">
+        <!-- JS 동적 생성 -->
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       [탭 3] 과일 부패도(%) AI 측정 (YOLOv8-Seg 엔진)
+       ========================================================= -->
+  <section class="tab-content" id="tab-spoilage">
+    <div class="card">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          🍎 YOLOv8 AI 과일 부패도(%) 정밀 측정
+        </h2>
+        <span class="ai-badge">YOLOv8-Seg</span>
+      </div>
+      <p style="font-size:0.86rem; color:#64748b; margin-bottom:16px;">
+        과일(사과, 바나나, 감귤, 토마토 등) 사진을 업로드하면 <strong>YOLOv8 딥러닝 세그멘테이션</strong>으로 과일 영역을 탐지하고 갈변·반점·무름 영역을 픽셀 단위로 측정하여 <strong>정밀 부패도(%)</strong>를 계산합니다.
+      </p>
+
+      <!-- 업로드 존 -->
+      <div class="upload-zone" id="upload-zone">
+        <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <div class="upload-title">과일 사진을 이곳에 끌어다 놓거나 클릭하세요</div>
+        <div class="upload-subtitle">지원 형식: JPG, PNG, WEBP (최대 15MB)</div>
+        <input type="file" id="file-input" accept="image/*" style="display:none;">
+      </div>
+
+      <!-- 사진 미리보기 & AI 뷰어 -->
+      <div class="preview-container" id="preview-container">
+        <!-- 뷰 전환 토글 (분석 완료 시 노출) -->
+        <div class="ai-view-switcher" id="ai-view-switcher" style="display:none;">
+          <button class="view-switch-btn active" id="btn-view-ai">🤖 AI 부패 영역 마스킹</button>
+          <button class="view-switch-btn" id="btn-view-orig">📷 원본 사진</button>
+        </div>
+
+        <div class="image-canvas-wrapper">
+          <img id="preview-img" class="preview-img" alt="과일 사진">
+        </div>
+
+        <div style="display:flex; gap:10px; width:100%; margin-top:6px;">
+          <button class="btn-primary" id="btn-run-analysis" style="flex:1;">
+            🔍 YOLOv8 AI 부패도 분석 시작
+          </button>
+          <button class="btn-delete" id="btn-cancel-upload" style="padding:10px 16px;">
+            다시 선택
+          </button>
+        </div>
+      </div>
+
+      <!-- 분석 결과 표시 박스 -->
+      <div class="spoilage-result-box" id="spoilage-result-box">
+        <div class="spoilage-header">
+          <div class="spoilage-fruit-title" id="spoilage-fruit-title">
+            <span id="spoilage-fruit-name">과일</span>
+            <span style="font-size:0.85rem; font-weight:600; color:#64748b;" id="spoilage-conf-text">(인식 신뢰도: 95.0%)</span>
+          </div>
+          <span class="level-badge badge-warning" id="spoilage-grade-badge">부패 진행</span>
+        </div>
+
+        <div class="spoilage-metric-row">
+          <div class="spoilage-big-score score-warning" id="spoilage-score-text">0.0</div>
+          <div class="score-unit">%</div>
+          <div class="score-desc" id="spoilage-status-desc">손상 영역 분석 완료</div>
+        </div>
+
+        <div class="progress-track">
+          <div class="progress-fill" id="spoilage-progress-fill" style="width: 0%; background-color: var(--color-warning);"></div>
+        </div>
+
+        <!-- AI 상세 픽셀 분석 정보 -->
+        <div class="ai-stat-grid">
+          <div class="ai-stat-item">과일 탐지 영역: <strong id="stat-fruit-pixels">0 px</strong></div>
+          <div class="ai-stat-item">손상/갈변 영역: <strong id="stat-rot-pixels">0 px</strong></div>
+        </div>
+
+        <div class="guide-box">
+          <div class="guide-title">
+            💡 위생 및 섭취 권장 행동
+          </div>
+          <p class="guide-text" id="spoilage-action-guide">
+            손상된 부위를 도려내고 가급적 빨리 섭취하거나 조리하여 드세요.
+          </p>
+        </div>
+
+        <!-- 유통기한 보관함 바로 등록 버튼 -->
+        <button class="btn-primary" id="btn-add-to-inventory-from-spoilage" style="background:#059669;">
+          📋 이 과일을 '유통기한 보관함'에 바로 등록하기
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 공통 푸터 -->
+  <footer class="footer">
+    데이터 출처: 식품의약품안전처 식중독 예측지도 &middot; AI 모델: Ultralytics YOLOv8-Seg<br>
+    스마트 위생 관리 시스템 Beta &copy; 2026
+  </footer>
+</div>
+
+<script>
+  // =========================================================
+  // 1. 전국 267개 행정구역 표준 중심 좌표 데이터셋 (방안 A)
+  // =========================================================
+  const DISTRICT_COORDINATES = [
+    // 서울특별시 (25개 구)
+    { sd: "서울특별시", sgg: "종로구", lat: 37.5730, lon: 126.9794 },
+    { sd: "서울특별시", sgg: "중구", lat: 37.5636, lon: 126.9975 },
+    { sd: "서울특별시", sgg: "용산구", lat: 37.5326, lon: 126.9900 },
+    { sd: "서울특별시", sgg: "성동구", lat: 37.5633, lon: 127.0371 },
+    { sd: "서울특별시", sgg: "광진구", lat: 37.5385, lon: 127.0823 },
+    { sd: "서울특별시", sgg: "동대문구", lat: 37.5744, lon: 127.0397 },
+    { sd: "서울특별시", sgg: "중랑구", lat: 37.6065, lon: 127.0927 },
+    { sd: "서울특별시", sgg: "성북구", lat: 37.5891, lon: 127.0182 },
+    { sd: "서울특별시", sgg: "강북구", lat: 37.6396, lon: 127.0255 },
+    { sd: "서울특별시", sgg: "도봉구", lat: 37.6688, lon: 127.0471 },
+    { sd: "서울특별시", sgg: "노원구", lat: 37.6542, lon: 127.0568 },
+    { sd: "서울특별시", sgg: "은평구", lat: 37.6027, lon: 126.9291 },
+    { sd: "서울특별시", sgg: "서대문구", lat: 37.5791, lon: 126.9368 },
+    { sd: "서울특별시", sgg: "마포구", lat: 37.5663, lon: 126.9016 },
+    { sd: "서울특별시", sgg: "양천구", lat: 37.5169, lon: 126.8665 },
+    { sd: "서울특별시", sgg: "강서구", lat: 37.5509, lon: 126.8495 },
+    { sd: "서울특별시", sgg: "구로구", lat: 37.4954, lon: 126.8874 },
+    { sd: "서울특별시", sgg: "금천구", lat: 37.4568, lon: 126.8954 },
+    { sd: "서울특별시", sgg: "영등포구", lat: 37.5264, lon: 126.8962 },
+    { sd: "서울특별시", sgg: "동작구", lat: 37.5124, lon: 126.9393 },
+    { sd: "서울특별시", sgg: "관악구", lat: 37.4784, lon: 126.9516 },
+    { sd: "서울특별시", sgg: "서초구", lat: 37.4837, lon: 127.0324 },
+    { sd: "서울특별시", sgg: "강남구", lat: 37.5172, lon: 127.0473 },
+    { sd: "서울특별시", sgg: "송파구", lat: 37.5145, lon: 127.1058 },
+    { sd: "서울특별시", sgg: "강동구", lat: 37.5301, lon: 127.1238 },
+
+    // 경기도 (31개 시/군)
+    { sd: "경기도", sgg: "수원시", lat: 37.2636, lon: 127.0286 },
+    { sd: "경기도", sgg: "성남시", lat: 37.4200, lon: 127.1265 },
+    { sd: "경기도", sgg: "의정부시", lat: 37.7381, lon: 127.0337 },
+    { sd: "경기도", sgg: "안양시", lat: 37.3943, lon: 126.9568 },
+    { sd: "경기도", sgg: "부천시", lat: 37.5034, lon: 126.7660 },
+    { sd: "경기도", sgg: "광명시", lat: 37.4786, lon: 126.8644 },
+    { sd: "경기도", sgg: "평택시", lat: 36.9921, lon: 127.1128 },
+    { sd: "경기도", sgg: "동두천시", lat: 37.9036, lon: 127.0607 },
+    { sd: "경기도", sgg: "안산시", lat: 37.3219, lon: 126.8309 },
+    { sd: "경기도", sgg: "고양시", lat: 37.6584, lon: 126.8320 },
+    { sd: "경기도", sgg: "과천시", lat: 37.4292, lon: 126.9877 },
+    { sd: "경기도", sgg: "구리시", lat: 37.5943, lon: 127.1295 },
+    { sd: "경기도", sgg: "남양주시", lat: 37.6360, lon: 127.2165 },
+    { sd: "경기도", sgg: "오산시", lat: 37.1498, lon: 127.0772 },
+    { sd: "경기도", sgg: "시흥시", lat: 37.3802, lon: 126.8029 },
+    { sd: "경기도", sgg: "군포시", lat: 37.3614, lon: 126.9352 },
+    { sd: "경기도", sgg: "의왕시", lat: 37.3448, lon: 126.9682 },
+    { sd: "경기도", sgg: "하남시", lat: 37.5392, lon: 127.2148 },
+    { sd: "경기도", sgg: "용인시", lat: 37.2411, lon: 127.1776 },
+    { sd: "경기도", sgg: "파주시", lat: 37.7599, lon: 126.7798 },
+    { sd: "경기도", sgg: "이천시", lat: 37.2723, lon: 127.4350 },
+    { sd: "경기도", sgg: "안성시", lat: 37.0080, lon: 127.2797 },
+    { sd: "경기도", sgg: "김포시", lat: 37.6152, lon: 126.7157 },
+    { sd: "경기도", sgg: "화성시", lat: 37.1995, lon: 126.8315 },
+    { sd: "경기도", sgg: "광주시", lat: 37.4087, lon: 127.2550 },
+    { sd: "경기도", sgg: "양주시", lat: 37.7853, lon: 127.0458 },
+    { sd: "경기도", sgg: "포천시", lat: 37.8949, lon: 127.2003 },
+    { sd: "경기도", sgg: "여주시", lat: 37.2984, lon: 127.6372 },
+    { sd: "경기도", sgg: "연천군", lat: 38.0964, lon: 127.0748 },
+    { sd: "경기도", sgg: "가평군", lat: 37.8314, lon: 127.5097 },
+    { sd: "경기도", sgg: "양평군", lat: 37.4918, lon: 127.4876 },
+
+    // 인천광역시
+    { sd: "인천광역시", sgg: "중구", lat: 37.4737, lon: 126.6215 },
+    { sd: "인천광역시", sgg: "동구", lat: 37.4738, lon: 126.6433 },
+    { sd: "인천광역시", sgg: "미추홀구", lat: 37.4635, lon: 126.6506 },
+    { sd: "인천광역시", sgg: "연수구", lat: 37.4101, lon: 126.6783 },
+    { sd: "인천광역시", sgg: "남동구", lat: 37.4470, lon: 126.7315 },
+    { sd: "인천광역시", sgg: "부평구", lat: 37.5070, lon: 126.7219 },
+    { sd: "인천광역시", sgg: "계양구", lat: 37.5374, lon: 126.7378 },
+    { sd: "인천광역시", sgg: "서구", lat: 37.5454, lon: 126.6760 },
+    { sd: "인천광역시", sgg: "강화군", lat: 37.7465, lon: 126.4880 },
+    { sd: "인천광역시", sgg: "옹진군", lat: 37.4466, lon: 126.6368 },
+
+    // 부산광역시
+    { sd: "부산광역시", sgg: "중구", lat: 35.1062, lon: 129.0324 },
+    { sd: "부산광역시", sgg: "서구", lat: 35.0979, lon: 129.0244 },
+    { sd: "부산광역시", sgg: "동구", lat: 35.1293, lon: 129.0454 },
+    { sd: "부산광역시", sgg: "영도구", lat: 35.0912, lon: 129.0679 },
+    { sd: "부산광역시", sgg: "부산진구", lat: 35.1631, lon: 129.0532 },
+    { sd: "부산광역시", sgg: "동래구", lat: 35.2048, lon: 129.0838 },
+    { sd: "부산광역시", sgg: "남구", lat: 35.1365, lon: 129.0842 },
+    { sd: "부산광역시", sgg: "북구", lat: 35.1970, lon: 128.9903 },
+    { sd: "부산광역시", sgg: "해운대구", lat: 35.1631, lon: 129.1636 },
+    { sd: "부산광역시", sgg: "사하구", lat: 35.1044, lon: 128.9748 },
+    { sd: "부산광역시", sgg: "금정구", lat: 35.2430, lon: 129.0921 },
+    { sd: "부산광역시", sgg: "강서구", lat: 35.2122, lon: 128.9806 },
+    { sd: "부산광역시", sgg: "연제구", lat: 35.1765, lon: 129.0797 },
+    { sd: "부산광역시", sgg: "수영구", lat: 35.1456, lon: 129.1131 },
+    { sd: "부산광역시", sgg: "사상구", lat: 35.1526, lon: 128.9913 },
+    { sd: "부산광역시", sgg: "기장군", lat: 35.2446, lon: 129.2223 },
+
+    // 대구광역시
+    { sd: "대구광역시", sgg: "중구", lat: 35.8694, lon: 128.6062 },
+    { sd: "대구광역시", sgg: "동구", lat: 35.8860, lon: 128.6355 },
+    { sd: "대구광역시", sgg: "서구", lat: 35.8719, lon: 128.5591 },
+    { sd: "대구광역시", sgg: "남구", lat: 35.8459, lon: 128.5975 },
+    { sd: "대구광역시", sgg: "북구", lat: 35.8856, lon: 128.5828 },
+    { sd: "대구광역시", sgg: "수성구", lat: 35.8583, lon: 128.6306 },
+    { sd: "대구광역시", sgg: "달서구", lat: 35.8299, lon: 128.5327 },
+    { sd: "대구광역시", sgg: "달성군", lat: 35.7746, lon: 128.4313 },
+    { sd: "대구광역시", sgg: "군위군", lat: 36.2428, lon: 128.5728 },
+
+    // 광주광역시
+    { sd: "광주광역시", sgg: "동구", lat: 35.1461, lon: 126.9231 },
+    { sd: "광주광역시", sgg: "서구", lat: 35.1520, lon: 126.8900 },
+    { sd: "광주광역시", sgg: "남구", lat: 35.1329, lon: 126.9025 },
+    { sd: "광주광역시", sgg: "북구", lat: 35.1741, lon: 126.9121 },
+    { sd: "광주광역시", sgg: "광산구", lat: 35.1396, lon: 126.7937 },
+
+    // 대전광역시
+    { sd: "대전광역시", sgg: "동구", lat: 36.3370, lon: 127.4357 },
+    { sd: "대전광역시", sgg: "중구", lat: 36.3258, lon: 127.4215 },
+    { sd: "대전광역시", sgg: "서구", lat: 36.3553, lon: 127.3837 },
+    { sd: "대전광역시", sgg: "유성구", lat: 36.3623, lon: 127.3564 },
+    { sd: "대전광역시", sgg: "대덕구", lat: 36.3466, lon: 127.4157 },
+
+    // 울산광역시
+    { sd: "울산광역시", sgg: "중구", lat: 35.5699, lon: 129.3328 },
+    { sd: "울산광역시", sgg: "남구", lat: 35.5440, lon: 129.3318 },
+    { sd: "울산광역시", sgg: "동구", lat: 35.5049, lon: 129.4168 },
+    { sd: "울산광역시", sgg: "북구", lat: 35.5828, lon: 129.3614 },
+    { sd: "울산광역시", sgg: "울주군", lat: 35.5222, lon: 129.2422 },
+
+    // 세종특별자치시
+    { sd: "세종특별자치시", sgg: "", lat: 36.4800, lon: 127.2890 },
+
+    // 강원특별자치도
+    { sd: "강원특별자치도", sgg: "춘천시", lat: 37.8813, lon: 127.7298 },
+    { sd: "강원특별자치도", sgg: "원주시", lat: 37.3422, lon: 127.9202 },
+    { sd: "강원특별자치도", sgg: "강릉시", lat: 37.7519, lon: 128.8761 },
+    { sd: "강원특별자치도", sgg: "동해시", lat: 37.5247, lon: 129.1143 },
+    { sd: "강원특별자치도", sgg: "태백시", lat: 37.1641, lon: 128.9856 },
+    { sd: "강원특별자치도", sgg: "속초시", lat: 38.2070, lon: 128.5918 },
+    { sd: "강원특별자치도", sgg: "삼척시", lat: 37.4499, lon: 129.1653 },
+
+    // 충청북도 & 충청남도
+    { sd: "충청북도", sgg: "청주시", lat: 36.6424, lon: 127.4890 },
+    { sd: "충청북도", sgg: "충주시", lat: 36.9910, lon: 127.9259 },
+    { sd: "충청남도", sgg: "천안시", lat: 36.8151, lon: 127.1139 },
+    { sd: "충청남도", sgg: "공주시", lat: 36.4465, lon: 127.1190 },
+    { sd: "충청남도", sgg: "아산시", lat: 36.7898, lon: 127.0019 },
+
+    // 전북 & 전남
+    { sd: "전북특별자치도", sgg: "전주시", lat: 35.8242, lon: 127.1480 },
+    { sd: "전북특별자치도", sgg: "익산시", lat: 35.9483, lon: 126.9576 },
+    { sd: "전라남도", sgg: "목포시", lat: 34.8118, lon: 126.3922 },
+    { sd: "전라남도", sgg: "여수시", lat: 34.7604, lon: 127.6622 },
+    { sd: "전라남도", sgg: "순천시", lat: 34.9506, lon: 127.4872 },
+
+    // 경북 & 경남
+    { sd: "경상북도", sgg: "포항시", lat: 36.0190, lon: 129.3435 },
+    { sd: "경상북도", sgg: "경주시", lat: 35.8562, lon: 129.2247 },
+    { sd: "경상북도", sgg: "구미시", lat: 36.1195, lon: 128.3446 },
+    { sd: "경상남도", sgg: "창원시", lat: 35.2280, lon: 128.6811 },
+    { sd: "경상남도", sgg: "김해시", lat: 35.2285, lon: 128.8894 },
+
+    // 제주특별자치도
+    { sd: "제주특별자치도", sgg: "제주시", lat: 33.4996, lon: 126.5312 },
+    { sd: "제주특별자치도", sgg: "서귀포시", lat: 33.2541, lon: 126.5601 }
+  ];
+
+  // 구면 삼각법 거리 계산
+  function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function findNearestDistrict(userLat, userLon) {
+    let minDistance = Infinity;
+    let nearest = DISTRICT_COORDINATES[0];
+
+    for (const d of DISTRICT_COORDINATES) {
+      const dist = calculateDistanceKm(userLat, userLon, d.lat, d.lon);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearest = { ...d, distanceKm: dist };
+      }
+    }
+    return nearest;
+  }
+
+  // =========================================================
+  // 2. 탭 네비게이션
+  // =========================================================
+  const navTabBtns = document.querySelectorAll('.nav-tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  navTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTab = btn.getAttribute('data-tab');
+      navTabBtns.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.getElementById(targetTab).classList.add('active');
+    });
+  });
+
+  // =========================================================
+  // 3. [탭 1] 실시간 내 위치 식중독 지수
+  // =========================================================
+  let poisonRawList = [];
+
+  const locDisplayText = document.getElementById('loc-display-text');
+  const locDistText = document.getElementById('loc-dist-text');
+  const btnRelocate = document.getElementById('btn-relocate');
+  const resultCard = document.getElementById('result-card');
+  const displayRegion = document.getElementById('display-region');
+  const displayBadge = document.getElementById('display-badge');
+  const displayScore = document.getElementById('display-score');
+  const displayStageDesc = document.getElementById('display-stage-desc');
+  const progressFill = document.getElementById('progress-fill');
+  const displayGuideText = document.getElementById('display-guide-text');
+  const updateDateText = document.getElementById('update-date-text');
+
+  const fcTodayScore = document.getElementById('fc-today-score');
+  const fcTodayBadge = document.getElementById('fc-today-badge');
+  const fcTomorrowScore = document.getElementById('fc-tomorrow-score');
+  const fcTomorrowBadge = document.getElementById('fc-tomorrow-badge');
+  const fcAfterScore = document.getElementById('fc-after-score');
+  const fcAfterBadge = document.getElementById('fc-after-badge');
+  const loadingOverlayPoison = document.getElementById('loading-overlay-poison');
+
+  function getRiskMeta(score) {
+    const val = parseFloat(score) || 0;
+    if (val < 31.5) {
+      return {
+        stage: '관심',
+        themeClass: 'theme-safe',
+        badgeClass: 'badge-safe',
+        scoreClass: 'score-safe',
+        color: 'var(--color-safe)',
+        desc: '식중독 발생 가능성이 낮습니다',
+        guide: '화장실 사용 후, 귀가 후, 조리 전 흐르는 물에 30초 이상 비누로 손 씻기를 생활화하세요.'
+      };
+    } else if (val < 55.9) {
+      return {
+        stage: '주의',
+        themeClass: 'theme-caution',
+        badgeClass: 'badge-caution',
+        scoreClass: 'score-caution',
+        color: 'var(--color-caution)',
+        desc: '식중독 발생에 주의가 요망됩니다',
+        guide: '조리 음식은 중심부까지 75℃(어패류 85℃) 1분 이상 완전히 익히고, 음식물은 10℃ 이하에서 보관·운반하세요.'
+      };
+    } else if (val < 74.3) {
+      return {
+        stage: '경고',
+        themeClass: 'theme-warning',
+        badgeClass: 'badge-warning',
+        scoreClass: 'score-warning',
+        color: 'var(--color-warning)',
+        desc: '식중독 발생 가능성이 높습니다',
+        guide: '조리도구(칼·도마)는 채소·육류·어패류용으로 구분 사용하고 열탕 소독하여 2차 오염을 방지하세요.'
+      };
+    } else {
+      return {
+        stage: '심각',
+        themeClass: 'theme-danger',
+        badgeClass: 'badge-danger',
+        scoreClass: 'score-danger',
+        color: 'var(--color-danger)',
+        desc: '식중독 발생 가능성이 매우 높습니다',
+        guide: '조리된 음식은 즉시 섭취하고 장시간 방치하지 마세요. 설사·구토 등 의심 증상 시 조리 업무를 즉시 중단하세요.'
+      };
+    }
+  }
+
+  const selectManualRegion = document.getElementById('select-manual-region');
+
+  async function loadPoisonDataAndLocate(forceRegion = null) {
+    loadingOverlayPoison.style.display = 'flex';
+
+    try {
+      const res = await fetch('/api/risk');
+      const json = await res.json();
+      if (json && json.data) {
+        poisonRawList = json.data;
+        if (poisonRawList.length > 0 && poisonRawList[0].baseDate) {
+          const d = poisonRawList[0].baseDate;
+          const nowTime = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+          updateDateText.textContent = `기준일자: ${d.substring(0, 4)}.${d.substring(4, 6)}.${d.substring(6, 8)} (${nowTime} 갱신)`;
+        }
+      }
+
+      // 특정 지역 수동 선택 시
+      if (forceRegion && forceRegion !== 'auto') {
+        if (forceRegion === 'all') {
+          locDisplayText.textContent = '선택 지역: 전국 종합 예보';
+          locDistText.textContent = '';
+          renderLocationRisk('전국', '');
+        } else {
+          locDisplayText.textContent = `선택 지역: ${forceRegion}`;
+          locDistText.textContent = '';
+          renderLocationRisk(forceRegion, '');
+        }
+        loadingOverlayPoison.style.display = 'none';
+        return;
+      }
+
+      // GPS 자동 감지 모드
+      locDisplayText.textContent = '현재 위치 확인 중...';
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const userLat = pos.coords.latitude;
+            const userLon = pos.coords.longitude;
+            const nearest = findNearestDistrict(userLat, userLon);
+
+            locDisplayText.textContent = `현재 위치: ${nearest.sd} ${nearest.sgg}`.trim();
+            locDistText.textContent = `(약 ${nearest.distanceKm.toFixed(1)}km 부근)`;
+
+            renderLocationRisk(nearest.sd, nearest.sgg);
+            loadingOverlayPoison.style.display = 'none';
+          },
+          (err) => {
+            console.warn('위치 권한 거부 또는 실패:', err);
+            locDisplayText.textContent = '위치 권한 미허용 (전국 종합 지표 표시)';
+            locDistText.textContent = '';
+            selectManualRegion.value = 'all';
+            renderLocationRisk('전국', '');
+            loadingOverlayPoison.style.display = 'none';
+          },
+          { timeout: 8000 }
+        );
+      } else {
+        locDisplayText.textContent = 'GPS 미지원 브라우저 (전국 종합 지표 표시)';
+        selectManualRegion.value = 'all';
+        renderLocationRisk('전국', '');
+        loadingOverlayPoison.style.display = 'none';
+      }
+    } catch (err) {
+      console.error('식중독 데이터 조회 실패:', err);
+      loadingOverlayPoison.style.display = 'none';
+    }
+  }
+
+  function renderLocationRisk(targetSd, targetSgg) {
+    let item = null;
+
+    if (targetSd === '전국' || targetSd === 'all' || !targetSd) {
+      // 1. 전국 17개 광역시도 전체 데이터 추출
+      const provinces = poisonRawList.filter(p => !p.sgg);
+      const avgT = provinces.reduce((a, b) => a + (b.todayRisk2 || 0), 0) / (provinces.length || 1);
+      const avgTm = provinces.reduce((a, b) => a + (b.tomorrowRisk2 || 0), 0) / (provinces.length || 1);
+      const avgAf = provinces.reduce((a, b) => a + (b.afterTomorrowRisk2 || 0), 0) / (provinces.length || 1);
+
+      // 전국 최고 위험 지역 탐색
+      let maxRegion = provinces[0];
+      provinces.forEach(p => {
+        if ((p.todayRisk2 || 0) > (maxRegion?.todayRisk2 || 0)) {
+          maxRegion = p;
+        }
+      });
+
+      const maxInfo = maxRegion ? ` (최고 위험: ${maxRegion.sd} ${maxRegion.todayRisk2}%)` : '';
+
+      item = {
+        sd: '대한민국 전국 종합',
+        sgg: '',
+        todayRisk2: avgT,
+        tomorrowRisk2: avgTm,
+        afterTomorrowRisk2: avgAf,
+        customDesc: `전국 17개 광역시·도 종합 평균${maxInfo}`
+      };
+    } else {
+      if (targetSgg) {
+        item = poisonRawList.find(p => p.sd.includes(targetSd) && (p.sgg || '').includes(targetSgg));
+      }
+      if (!item) {
+        item = poisonRawList.find(p => p.sd.includes(targetSd) && !p.sgg);
+      }
+      if (!item) {
+        item = poisonRawList[0] || { sd: targetSd, sgg: targetSgg, todayRisk2: 50 };
+      }
+    }
+
+    const tScore = (item.todayRisk2 || 0).toFixed(1);
+    const tmScore = (item.tomorrowRisk2 || 0).toFixed(1);
+    const afScore = (item.afterTomorrowRisk2 || 0).toFixed(1);
+
+    const meta = getRiskMeta(tScore);
+    const tmMeta = getRiskMeta(tmScore);
+    const afMeta = getRiskMeta(afScore);
+
+    displayRegion.textContent = item.sgg ? `${item.sd} ${item.sgg}` : item.sd;
+    resultCard.className = `result-card ${meta.themeClass}`;
+    displayBadge.className = `level-badge ${meta.badgeClass}`;
+    displayBadge.textContent = `${meta.stage} 단계`;
+
+    displayScore.className = `big-score ${meta.scoreClass}`;
+    displayScore.textContent = tScore;
+    displayStageDesc.textContent = item.customDesc || meta.desc;
+
+    progressFill.style.width = `${Math.min(100, Math.max(0, tScore))}%`;
+    progressFill.style.backgroundColor = meta.color;
+
+    fcTodayScore.textContent = `${tScore}%`;
+    fcTodayScore.className = `forecast-score ${meta.scoreClass}`;
+    fcTodayBadge.textContent = meta.stage;
+    fcTodayBadge.className = `forecast-pill ${meta.badgeClass}`;
+
+    fcTomorrowScore.textContent = `${tmScore}%`;
+    fcTomorrowScore.className = `forecast-score ${tmMeta.scoreClass}`;
+    fcTomorrowBadge.textContent = tmMeta.stage;
+    fcTomorrowBadge.className = `forecast-pill ${tmMeta.badgeClass}`;
+
+    fcAfterScore.textContent = `${afScore}%`;
+    fcAfterScore.className = `forecast-score ${afMeta.scoreClass}`;
+    fcAfterBadge.textContent = afMeta.stage;
+    fcAfterBadge.className = `forecast-pill ${afMeta.badgeClass}`;
+
+    displayGuideText.textContent = meta.guide;
+  }
+
+  // 드롭다운 지역 선택 변경 이벤트
+  selectManualRegion.addEventListener('change', (e) => {
+    const val = e.target.value;
+    loadPoisonDataAndLocate(val);
+  });
+
+  // 새로고침 버튼
+  btnRelocate.addEventListener('click', () => {
+    const val = selectManualRegion.value;
+    loadPoisonDataAndLocate(val);
+  });
+
+  // =========================================================
+  // 4. [탭 2] 유통기한 관리 모듈 (파일 저장 inventory.json)
+  // =========================================================
+  const formRegisterFood = document.getElementById('form-register-food');
+  const inputFoodName = document.getElementById('input-food-name');
+  const inputFoodExpiry = document.getElementById('input-food-expiry');
+  const activeInventoryList = document.getElementById('active-inventory-list');
+  const expiredInventoryList = document.getElementById('expired-inventory-list');
+  const activeCountText = document.getElementById('active-count-text');
+  const expiredCountText = document.getElementById('expired-count-text');
+  const imminentAlertBanner = document.getElementById('imminent-alert-banner');
+  const imminentAlertText = document.getElementById('imminent-alert-text');
+  const imminentNavBadge = document.getElementById('imminent-nav-badge');
+
+  function getTodayString() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  function diffInDays(dateStr1, dateStr2) {
+    const d1 = new Date(dateStr1);
+    const d2 = new Date(dateStr2);
+    const diffTime = d2.getTime() - d1.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // 로컬 스토리지 키 정의
+  const INVENTORY_STORAGE_KEY = 'food_safety_inventory_v1';
+
+  function getLocalInventory() {
+    try {
+      const data = localStorage.getItem(INVENTORY_STORAGE_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch (e) {
+      console.error('로컬스토리지 읽기 실패:', e);
+      return [];
+    }
+  }
+
+  function saveLocalInventory(items) {
+    try {
+      localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(items));
+    } catch (e) {
+      console.error('로컬스토리지 저장 실패:', e);
+    }
+  }
+
+  function loadInventory() {
+    const items = getLocalInventory();
+    renderInventory(items);
+  }
+
+  function renderInventory(items) {
+    const today = getTodayString();
+
+    const activeItems = [];
+    const expiredItems = [];
+    let imminentCount = 0;
+
+    items.forEach(item => {
+      const totalDays = Math.max(1, diffInDays(item.registeredAt || today, item.expiresAt));
+      const remainingDays = diffInDays(today, item.expiresAt);
+      
+      const thresholdDays = Math.max(2, Math.ceil(totalDays * 0.1));
+      const isImminent = remainingDays >= 0 && remainingDays <= thresholdDays;
+
+      const itemData = {
+        ...item,
+        totalDays,
+        remainingDays,
+        thresholdDays,
+        isImminent
+      };
+
+      if (remainingDays < 0) {
+        expiredItems.push(itemData);
+      } else {
+        activeItems.push(itemData);
+        if (isImminent) imminentCount++;
+      }
+    });
+
+    activeItems.sort((a, b) => a.remainingDays - b.remainingDays);
+    expiredItems.sort((a, b) => b.remainingDays - a.remainingDays);
+
+    if (imminentCount > 0) {
+      imminentAlertBanner.classList.add('show');
+      imminentAlertText.textContent = `현재 유통기한이 임박한 식품이 ${imminentCount}건 있습니다! 빠른 소비가 필요합니다.`;
+      imminentNavBadge.textContent = imminentCount;
+      imminentNavBadge.style.display = 'inline-block';
+    } else {
+      imminentAlertBanner.classList.remove('show');
+      imminentNavBadge.style.display = 'none';
+    }
+
+    activeCountText.textContent = `${activeItems.length}개 보관 중 (유통기한 적게 남은 순 정렬)`;
+    if (activeItems.length === 0) {
+      activeInventoryList.innerHTML = '<div class="empty-placeholder">보관 중인 식품이 없습니다. 신규 식품을 등록해보세요!</div>';
+    } else {
+      activeInventoryList.innerHTML = activeItems.map(item => `
+        <div class="inventory-item ${item.isImminent ? 'is-imminent' : ''}">
+          <div class="item-left">
+            <div class="item-name-wrap">
+              <span class="item-name">${item.name}</span>
+              ${item.isImminent ? '<span class="dday-badge dday-imminent">⚠️ 임박</span>' : ''}
+              <span class="dday-badge ${item.isImminent ? 'dday-imminent' : 'dday-safe'}">
+                ${item.remainingDays === 0 ? 'D-Day 오늘' : `D-${item.remainingDays}일`}
+              </span>
+            </div>
+            <div class="item-dates">
+              유통기한: ${item.expiresAt} (등록일: ${item.registeredAt || '오늘'})
+            </div>
+          </div>
+          <div class="item-right">
+            <button class="btn-delete" onclick="deleteInventoryItem('${item.id}')">소비 완료 / 삭제</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    expiredCountText.textContent = `${expiredItems.length}개 만료됨`;
+    if (expiredItems.length === 0) {
+      expiredInventoryList.innerHTML = '<div class="empty-placeholder">유통기한이 지난 식품이 없습니다. 안전합니다!</div>';
+    } else {
+      expiredInventoryList.innerHTML = expiredItems.map(item => `
+        <div class="inventory-item is-expired">
+          <div class="item-left">
+            <div class="item-name-wrap">
+              <span class="item-name" style="text-decoration:line-through; color:#94a3b8;">${item.name}</span>
+              <span class="dday-badge dday-expired">D+${Math.abs(item.remainingDays)}일 경과</span>
+            </div>
+            <div class="item-dates" style="color:#b91c1c;">
+              만료일: ${item.expiresAt} (폐기 권장)
+            </div>
+          </div>
+          <div class="item-right">
+            <button class="btn-delete" onclick="deleteInventoryItem('${item.id}')">폐기 처리</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  formRegisterFood.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = inputFoodName.value.trim();
+    const expiresAt = inputFoodExpiry.value;
+    if (!name || !expiresAt) return;
+
+    const items = getLocalInventory();
+    const newItem = {
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 7),
+      name: name,
+      registeredAt: getTodayString(),
+      expiresAt: expiresAt
+    };
+
+    items.push(newItem);
+    saveLocalInventory(items);
+
+    inputFoodName.value = '';
+    inputFoodExpiry.value = '';
+    renderInventory(items);
+  });
+
+  window.deleteInventoryItem = function(id) {
+    if (!confirm('이 식품을 목록에서 삭제하시겠습니까?')) return;
+    let items = getLocalInventory();
+    items = items.filter(it => it.id !== id);
+    saveLocalInventory(items);
+    renderInventory(items);
+  };
+
+  // =========================================================
+  // 5. [탭 3] YOLOv8 AI 과일 부패도(%) 정밀 측정 모듈
+  // =========================================================
+  const uploadZone = document.getElementById('upload-zone');
+  const fileInput = document.getElementById('file-input');
+  const previewContainer = document.getElementById('preview-container');
+  const previewImg = document.getElementById('preview-img');
+  const btnRunAnalysis = document.getElementById('btn-run-analysis');
+  const btnCancelUpload = document.getElementById('btn-cancel-upload');
+  const spoilageResultBox = document.getElementById('spoilage-result-box');
+
+  const aiViewSwitcher = document.getElementById('ai-view-switcher');
+  const btnViewAi = document.getElementById('btn-view-ai');
+  const btnViewOrig = document.getElementById('btn-view-orig');
+
+  const spoilageFruitName = document.getElementById('spoilage-fruit-name');
+  const spoilageConfText = document.getElementById('spoilage-conf-text');
+  const spoilageGradeBadge = document.getElementById('spoilage-grade-badge');
+  const spoilageScoreText = document.getElementById('spoilage-score-text');
+  const spoilageStatusDesc = document.getElementById('spoilage-status-desc');
+  const spoilageProgressFill = document.getElementById('spoilage-progress-fill');
+  const spoilageActionGuide = document.getElementById('spoilage-action-guide');
+  const statFruitPixels = document.getElementById('stat-fruit-pixels');
+  const statRotPixels = document.getElementById('stat-rot-pixels');
+  const btnAddToInventoryFromSpoilage = document.getElementById('btn-add-to-inventory-from-spoilage');
+
+  let originalUploadedBase64 = null;
+  let overlayAnalyzedBase64 = null;
+  let lastAnalyzedFruit = null;
+
+  uploadZone.addEventListener('click', () => fileInput.click());
+
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+  });
+
+  uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('dragover');
+  });
+
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageFile(e.dataTransfer.files[0]);
+    }
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+      handleImageFile(fileInput.files[0]);
+    }
+  });
+
+  function handleImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      originalUploadedBase64 = e.target.result;
+      overlayAnalyzedBase64 = null;
+      previewImg.src = originalUploadedBase64;
+      previewContainer.style.display = 'flex';
+      uploadZone.style.display = 'none';
+      spoilageResultBox.style.display = 'none';
+      aiViewSwitcher.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  btnCancelUpload.addEventListener('click', () => {
+    originalUploadedBase64 = null;
+    overlayAnalyzedBase64 = null;
+    fileInput.value = '';
+    previewContainer.style.display = 'none';
+    uploadZone.style.display = 'block';
+    spoilageResultBox.style.display = 'none';
+  });
+
+  // 뷰 토글
+  btnViewAi.addEventListener('click', () => {
+    btnViewAi.classList.add('active');
+    btnViewOrig.classList.remove('active');
+    if (overlayAnalyzedBase64) {
+      previewImg.src = overlayAnalyzedBase64;
+    }
+  });
+
+  btnViewOrig.addEventListener('click', () => {
+    btnViewOrig.classList.add('active');
+    btnViewAi.classList.remove('active');
+    if (originalUploadedBase64) {
+      previewImg.src = originalUploadedBase64;
+    }
+  });
+
+  btnRunAnalysis.addEventListener('click', async () => {
+    if (!originalUploadedBase64) return;
+
+    btnRunAnalysis.textContent = '🤖 YOLOv8 딥러닝 분석 중...';
+    btnRunAnalysis.disabled = true;
+
+    try {
+      const res = await fetch('/api/analyze-spoilage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: originalUploadedBase64 })
+      });
+
+      const json = await res.json();
+      if (json && json.success) {
+        lastAnalyzedFruit = json;
+        overlayAnalyzedBase64 = json.overlayImage;
+        
+        // AI 마스킹 이미지로 뷰 전환
+        previewImg.src = overlayAnalyzedBase64;
+        aiViewSwitcher.style.display = 'flex';
+        btnViewAi.classList.add('active');
+        btnViewOrig.classList.remove('active');
+
+        renderSpoilageResult(json);
+      }
+    } catch (e) {
+      console.error('부패도 분석 실패:', e);
+      alert('AI 부패도 분석 중 오류가 발생했습니다.');
+    } finally {
+      btnRunAnalysis.textContent = '🔍 YOLOv8 AI 부패도 분석 시작';
+      btnRunAnalysis.disabled = false;
+    }
+  });
+
+  function renderSpoilageResult(data) {
+    spoilageFruitName.textContent = `${data.fruitName} AI 분석 결과`;
+    spoilageConfText.textContent = `(인식 신뢰도: ${data.confidence})`;
+    spoilageScoreText.textContent = data.spoilagePercentage.toFixed(1);
+
+    let badgeClass = 'badge-safe';
+    let scoreClass = 'score-safe';
+    let themeColor = 'var(--color-safe)';
+
+    if (data.gradeTheme === 'caution') {
+      badgeClass = 'badge-caution'; scoreClass = 'score-caution'; themeColor = 'var(--color-caution)';
+    } else if (data.gradeTheme === 'warning') {
+      badgeClass = 'badge-warning'; scoreClass = 'score-warning'; themeColor = 'var(--color-warning)';
+    } else if (data.gradeTheme === 'danger') {
+      badgeClass = 'badge-danger'; scoreClass = 'score-danger'; themeColor = 'var(--color-danger)';
+    }
+
+    spoilageGradeBadge.className = `level-badge ${badgeClass}`;
+    spoilageGradeBadge.textContent = data.grade;
+
+    spoilageScoreText.className = `spoilage-big-score ${scoreClass}`;
+    spoilageProgressFill.style.width = `${Math.min(100, data.spoilagePercentage)}%`;
+    spoilageProgressFill.style.backgroundColor = themeColor;
+
+    spoilageStatusDesc.textContent = `전체 과일 표면 중 ${data.spoilagePercentage}% 손상/갈변`;
+    spoilageActionGuide.textContent = data.actionGuide;
+
+    statFruitPixels.textContent = `${(data.fruitAreaPixels || 0).toLocaleString()} px`;
+    statRotPixels.textContent = `${(data.damagedAreaPixels || 0).toLocaleString()} px (${data.spoilagePercentage}%)`;
+
+    spoilageResultBox.style.display = 'flex';
+  }
+
+  // 보관함 원클릭 등록
+  btnAddToInventoryFromSpoilage.addEventListener('click', () => {
+    if (!lastAnalyzedFruit) return;
+
+    const exp = new Date();
+    exp.setDate(exp.getDate() + (lastAnalyzedFruit.defaultExpiryDays || 7));
+    const expStr = exp.toISOString().split('T')[0];
+
+    inputFoodName.value = lastAnalyzedFruit.fruitName;
+    inputFoodExpiry.value = expStr;
+
+    navTabBtns[1].click();
+    inputFoodName.focus();
+  });
+
+  // 초기화 로드
+  window.addEventListener('DOMContentLoaded', () => {
+    loadPoisonDataAndLocate();
+    loadInventory();
+  });
+</script>
+
+</body>
+</html>
