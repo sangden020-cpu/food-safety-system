@@ -20,18 +20,21 @@ from ultralytics import YOLO
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INVENTORY_FILE = os.path.join(BASE_DIR, "inventory.json")
 INDEX_HTML_PATH = os.path.join(BASE_DIR, "index.html")
-MODEL_PATH = os.path.join(BASE_DIR, "yolov8n-seg.pt")
+ONNX_MODEL_PATH = os.path.join(BASE_DIR, "yolov8n-seg.onnx")
+PT_MODEL_PATH = os.path.join(BASE_DIR, "yolov8n-seg.pt")
 
-# 만약 project_beta 내에 모델이 없으면 상위 project 폴더에서 복사 또는 자동 로드
-if not os.path.exists(MODEL_PATH):
-    parent_model = os.path.join(os.path.dirname(BASE_DIR), "project", "yolov8n-seg.pt")
-    if os.path.exists(parent_model):
-        MODEL_PATH = parent_model
-    else:
-        MODEL_PATH = "yolov8n-seg.pt"
+if os.path.exists(ONNX_MODEL_PATH):
+    MODEL_PATH = ONNX_MODEL_PATH
+    print(f"[*] 초경량 ONNX 세그멘테이션 모델을 로드하는 중... ({MODEL_PATH})")
+    yolo_model = YOLO(MODEL_PATH, task="segment")
+elif os.path.exists(PT_MODEL_PATH):
+    MODEL_PATH = PT_MODEL_PATH
+    print(f"[*] YOLOv8-Seg PT 모델을 로드하는 중... ({MODEL_PATH})")
+    yolo_model = YOLO(MODEL_PATH)
+else:
+    MODEL_PATH = "yolov8n-seg.pt"
+    yolo_model = YOLO(MODEL_PATH)
 
-print(f"[*] YOLOv8-Seg 모델을 로드하는 중... ({MODEL_PATH})")
-yolo_model = YOLO(MODEL_PATH)
 print("[+] YOLOv8-Seg 모델 로드 완료!")
 
 # 인벤토리 파일 초기화
